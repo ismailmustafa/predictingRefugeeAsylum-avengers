@@ -3,12 +3,12 @@
 
 ### Directory structure
 
-.\n
-├── clean.py\n
-└── data\n
-    ├── clean\n
-    ├── raw\n
-    ├── sports\n
+.
+├── clean.py
+└── data
+    ├── clean
+    ├── raw
+    ├── sports
     └── weather
 
 ### Usage
