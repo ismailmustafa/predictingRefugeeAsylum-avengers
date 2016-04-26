@@ -32,7 +32,7 @@ def main():
 # load data, clean values, return train and test set split
 def load_and_process_data():
 	print "loading data and processing..."
-	asylum_clean = pandas.read_csv("data/raw/asylum_clean.csv")
+	asylum_clean = pandas.read_csv("data/raw/asylum_clean_bios.csv")
 	asylum_clean_data = asylum_clean.as_matrix()
 
 	# select specific X columns as features
