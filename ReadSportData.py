@@ -170,7 +170,9 @@ def win_score(data, play_date, judge_states):
     won_games = 0
     for nba_team in play_team_nba:
         for day in days_range:
-            filtered_data.append(data.all_sports_data[day + nba_team + "nba"])
+            key = str(day) + nba_team + "nba"
+            if key in data.all_sports_data:
+                filtered_data.append(data.all_sports_data[str(day) + nba_team + "nba"])
             # filtered_data = data.nba_data[(data.nba_data['date_format'].isin(days_range)) & (data.nba_data['Team']
                                                                                          # .str.contains(nba_team))]
         # total_games = total_games + len(filtered_data)
@@ -182,7 +184,9 @@ def win_score(data, play_date, judge_states):
     # data.nfl_data['date_format'] = data.nfl_data.apply(lambda row: format_date(row), axis=1)
     for nfl_team in play_team_nfl:
         for day in days_range:
-            filtered_data.append(data.all_sports_data[day + nfl_team + "nfl"])
+            key = str(day) + nba_team + "nba"
+            if key in data.all_sports_data:
+                filtered_data.append(data.all_sports_data[day + nfl_team + "nfl"])
         # filtered_data = data.nfl_data[(data.nfl_data['date_format'].isin(days_range)) & (data.nfl_data['Team']
                                                                                          # .str.contains(nfl_team))]
         # total_games = total_games + len(filtered_data)
@@ -194,7 +198,9 @@ def win_score(data, play_date, judge_states):
     # data.mlb_data['date_format'] = data.mlb_data.apply(lambda row: format_date(row), axis=1)
     for mlb_team in play_team_mlb:
         for day in days_range:
-            filtered_data.append(data.all_sports_data[day + mlb_team + "mlb"])
+            key = str(day) + nba_team + "nba"
+            if key in data.all_sports_data:
+                filtered_data.append(data.all_sports_data[day + mlb_team + "mlb"])
         # filtered_data = data.mlb_data[(data.mlb_data['date_format'].isin(days_range)) & (data.mlb_data['Team']
                                                                                          # .str.contains(mlb_team))]
         # total_games = total_games + len(filtered_data)
@@ -206,7 +212,9 @@ def win_score(data, play_date, judge_states):
     # data.nhl_data['date_format'] = data.nhl_data.apply(lambda row: format_date(row), axis=1)
     for nhl_team in play_team_nhl:
         for day in days_range:
-            filtered_data.append(data.all_sports_data[day + nhl_team + "nhl"])
+            key = str(day) + nba_team + "nba"
+            if key in data.all_sports_data:
+                filtered_data.append(data.all_sports_data[day + nhl_team + "nhl"])
         # filtered_data = data.nhl_data[(data.nhl_data['date_format'].isin(days_range)) & (data.nhl_data['Team']
         #                                                                                  .str.contains(nhl_team))]
         # total_games = total_games + len(filtered_data)
@@ -216,7 +224,7 @@ def win_score(data, play_date, judge_states):
         #     sport_count = sport_count + 1
 
     total_games = len(filtered_data)
-    won_games = [x == "W" for x in filtered_data]
+    won_games = [x for x in filtered_data if x == 'W']
 
     log.debug("total_games:", total_games)
     log.debug("won_games:", won_games)
@@ -237,12 +245,12 @@ def getCompletionDate(stata_date):
 
 if __name__ == '__main__':
     data = LoadData();
-    asy_data = pd.read_csv('data/raw/asylum_clean_full_sample.csv')
+    asy_data = pd.read_csv('data/raw/asylum_clean_full.csv')[:20]
     asy_data['sports_score'] = Series(np.random.randn(len(asy_data)), index=asy_data.index)
     for s in range(len(asy_data)):
         try:
-            log.error('==============================================================================')
-            log.error('Row#', str(s))
+            log.debug('==============================================================================')
+            log.debug('Row#', str(s))
             date_of_interest = getCompletionDate(asy_data['comp_date'][s].astype(int)).strftime('%m/%d/%y')
             locations_of_interest = set()
             if isinstance(asy_data['JudgeUndergradLocation'][s], basestring):
@@ -256,7 +264,7 @@ if __name__ == '__main__':
             log.debug(date_of_interest)
             if locations_of_interest is not None and len(locations_of_interest) != 0 and date_of_interest is not None:
                 asy_data['sports_score'][s] = win_score(data, date_of_interest, locations_of_interest)
-                log.debug('%.4f'% asy_data['sports_score'][s])
+                print ('%.4f'% asy_data['sports_score'][s])
         except:
             log.debug("Unexpected error:", sys.exc_info()[0])
 
