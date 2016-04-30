@@ -9,7 +9,7 @@ import logging as log
 import cPickle as pickle
 import os.path
 
-log.basicConfig(filename='output.log',level=log.ERROR)
+log.basicConfig(filename='output.log',level=log.DEBUG)
 
 class LoadData:
 
@@ -142,6 +142,7 @@ class LoadData:
 
 # Need to get these values play_team_nba, play_team_nfl, play_team_mlb, play_team_nhl from map object
 def win_score(data, play_date, judge_states):
+    print "in here kfdjsaklfjdslkafjdsklaj"
     play_team_mlb = []
     play_team_nba = []
     play_team_nfl = []
@@ -217,8 +218,11 @@ def win_score(data, play_date, judge_states):
     total_games = len(filtered_data)
     won_games = [x == "W" for x in filtered_data]
 
+    log.debug("total_games:", total_games)
+    log.debug("won_games:", won_games)
+
     if total_games != 0:
-            return won_games/float(total_games)
+        return won_games/float(total_games)
     else:
         return 0.5
     # if sport_count != 0:
@@ -233,13 +237,12 @@ def getCompletionDate(stata_date):
 
 if __name__ == '__main__':
     data = LoadData();
-    asy_data = pd.read_csv('data/raw/asylum_clean_full.csv')[:20]
-    # asy_data['sports_score'] = Series(np.random.randn(len(asy_data)), index=asy_data.index)
-    sports_scores = []
+    asy_data = pd.read_csv('data/raw/asylum_clean_full_sample.csv')
+    asy_data['sports_score'] = Series(np.random.randn(len(asy_data)), index=asy_data.index)
     for s in range(len(asy_data)):
         try:
             log.error('==============================================================================')
-            # log.error('Row#', str(s))
+            log.error('Row#', str(s))
             date_of_interest = getCompletionDate(asy_data['comp_date'][s].astype(int)).strftime('%m/%d/%y')
             locations_of_interest = set()
             if isinstance(asy_data['JudgeUndergradLocation'][s], basestring):
@@ -249,15 +252,15 @@ if __name__ == '__main__':
             # print re.split(';|,', asy_data['Bar'][s])
             if isinstance(asy_data['Bar'][s], basestring):
                 locations_of_interest |= set(map(str.strip, re.split(';|,', asy_data['Bar'][s])))
-            log.error(locations_of_interest)
-            log.error(date_of_interest)
+            log.debug(locations_of_interest)
+            log.debug(date_of_interest)
             if locations_of_interest is not None and len(locations_of_interest) != 0 and date_of_interest is not None:
-                sports_scores.append(win_score(data, date_of_interest, locations_of_interest))
-                # log.error('%.4f'% asy_data['sports_score'][s])
+                asy_data['sports_score'][s] = win_score(data, date_of_interest, locations_of_interest)
+                log.debug('%.4f'% asy_data['sports_score'][s])
         except:
-            log.error("Unexpected error:", str(sys.exc_info()[0]))
-    asy_data["sports_score"] = sports_scores
-    asy_data.to_csv('data/raw/asylum_clean_full_sports.csv')
+            log.debug("Unexpected error:", sys.exc_info()[0])
+
+    asy_data.to_csv('data/raw/asylum_clean_full_sports_sample.csv')
 
 
 
