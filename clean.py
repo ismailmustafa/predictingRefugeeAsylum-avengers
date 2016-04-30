@@ -82,7 +82,7 @@ def weatherScore():
 		print "saved weather data"
 
 	print "loading asylum data"
-	asylum_clean_full = pandas.read_csv("data/raw/asylum_clean_full.csv")
+	asylum_clean_full = pandas.read_csv("data/raw/asylum_clean_full_sports.csv")
 	print "loaded asylum data"
 
 	lowest_score = sys.float_info.max
@@ -98,10 +98,10 @@ def weatherScore():
 			newDate = currentDate - dt.timedelta(days=numDays)
 			allDates.append(str(newDate.strftime('%Y%m%d')))
 		# Get dates of current and past four days
-		city = row[1][-1]
+		city = row[1][-2]
 
 		# Default to 0.5
-		score_calculation = 0.0
+		score_calculation = 0.5
 		dateCount = 0
 		# iterate through all 5 days of weather
 		weather_scores = []
@@ -131,8 +131,8 @@ def weatherScore():
 				lowest_score = score_calculation
 
 		all_scores.append(score_calculation)
-	asylum_clean_full['weather_mood'] = all_scores
-	asylum_clean_full.to_csv('data/raw/asylum_clean_full_weather.csv', index=False, index_label=False)
+	asylum_clean_full['weather_score'] = all_scores
+	asylum_clean_full.to_csv('data/raw/asylum_clean_full_test.csv', index=False, index_label=False)
 
 	print "highest score:", highest_score
 	print "lowest_score:", lowest_score

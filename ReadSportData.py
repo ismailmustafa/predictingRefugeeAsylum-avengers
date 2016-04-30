@@ -142,7 +142,6 @@ class LoadData:
 
 # Need to get these values play_team_nba, play_team_nfl, play_team_mlb, play_team_nhl from map object
 def win_score(data, play_date, judge_states):
-    print "in here kfdjsaklfjdslkafjdsklaj"
     play_team_mlb = []
     play_team_nba = []
     play_team_nfl = []
@@ -158,8 +157,6 @@ def win_score(data, play_date, judge_states):
         if judge_state in data.nhl_team_by_state.keys():
             play_team_nhl = play_team_nhl+data.nhl_team_by_state[judge_state]
 
-    # print d.datetime.strptime(play_date, '%m/%d/%y').date() - timedelta(days= 1)
-    # data.nba_data['date_format'] = data.nba_data.apply(lambda row: format_date(row), axis=1)
     days_range = []
     win_percent = 0.0
     sport_count = 0
@@ -168,67 +165,38 @@ def win_score(data, play_date, judge_states):
     filtered_data = []
     total_games = 0
     won_games = 0
+
     for nba_team in play_team_nba:
         for day in days_range:
-            filtered_data.append(data.all_sports_data[day + nba_team + "nba"])
-            # filtered_data = data.nba_data[(data.nba_data['date_format'].isin(days_range)) & (data.nba_data['Team']
-                                                                                         # .str.contains(nba_team))]
-        # total_games = total_games + len(filtered_data)
-        # won_games = won_games + len(filtered_data[filtered_data['Game Result'] == 'W'])
-        # if total_games != 0:
-        #     win_percent = win_percent + won_games/float(total_games)
-        #     sport_count = sport_count + 1
+            key = str(day) + nba_team + "nba"
+            if key in data.all_sports_data:
+                filtered_data.append(data.all_sports_data[key])
 
-    # data.nfl_data['date_format'] = data.nfl_data.apply(lambda row: format_date(row), axis=1)
     for nfl_team in play_team_nfl:
         for day in days_range:
-            filtered_data.append(data.all_sports_data[day + nfl_team + "nfl"])
-        # filtered_data = data.nfl_data[(data.nfl_data['date_format'].isin(days_range)) & (data.nfl_data['Team']
-                                                                                         # .str.contains(nfl_team))]
-        # total_games = total_games + len(filtered_data)
-        # won_games = won_games + len(filtered_data[filtered_data['Game Result'] == 'W'])
-        # if total_games != 0:
-        #     win_percent = win_percent + won_games/float(total_games)
-        #     sport_count = sport_count + 1
+            key = str(day) + nfl_team + "nfl"
+            if key in data.all_sports_data:
+                filtered_data.append(data.all_sports_data[key])
 
-    # data.mlb_data['date_format'] = data.mlb_data.apply(lambda row: format_date(row), axis=1)
     for mlb_team in play_team_mlb:
         for day in days_range:
-            filtered_data.append(data.all_sports_data[day + mlb_team + "mlb"])
-        # filtered_data = data.mlb_data[(data.mlb_data['date_format'].isin(days_range)) & (data.mlb_data['Team']
-                                                                                         # .str.contains(mlb_team))]
-        # total_games = total_games + len(filtered_data)
-        # won_games = won_games + len(filtered_data[filtered_data['Game Result'] == 'W'])
-        # if total_games != 0:
-        #     win_percent = win_percent + won_games/float(total_games)
-        #     sport_count = sport_count + 1
+            key = str(day) + mlb_team + "mlb"
+            if key in data.all_sports_data:
+                filtered_data.append(data.all_sports_data[key])
 
-    # data.nhl_data['date_format'] = data.nhl_data.apply(lambda row: format_date(row), axis=1)
     for nhl_team in play_team_nhl:
         for day in days_range:
-            filtered_data.append(data.all_sports_data[day + nhl_team + "nhl"])
-        # filtered_data = data.nhl_data[(data.nhl_data['date_format'].isin(days_range)) & (data.nhl_data['Team']
-        #                                                                                  .str.contains(nhl_team))]
-        # total_games = total_games + len(filtered_data)
-        # won_games = won_games + len(filtered_data[filtered_data['Game Result'] == 'W'])
-        # if total_games != 0:
-        #     win_percent = win_percent + won_games/float(total_games)
-        #     sport_count = sport_count + 1
+            key = str(day) + nhl_team + "nhl"
+            if key in data.all_sports_data:
+                filtered_data.append(data.all_sports_data[key])
 
     total_games = len(filtered_data)
-    won_games = [x == "W" for x in filtered_data]
-
-    log.debug("total_games:", total_games)
-    log.debug("won_games:", won_games)
+    won_games = [x for x in filtered_data if x == "W"]
 
     if total_games != 0:
-        return won_games/float(total_games)
+        return len(won_games)/float(total_games)
     else:
         return 0.5
-    # if sport_count != 0:
-    #     return win_percent/sport_count
-    # else:
-    #     return None
 
 def getCompletionDate(stata_date):
 	date1960Jan1 = dt.datetime(1960,01,01)
@@ -237,7 +205,7 @@ def getCompletionDate(stata_date):
 
 if __name__ == '__main__':
     data = LoadData();
-    asy_data = pd.read_csv('data/raw/asylum_clean_full_sample.csv')
+    asy_data = pd.read_csv('data/raw/asylum_clean_full_small.csv')
     asy_data['sports_score'] = Series(np.random.randn(len(asy_data)), index=asy_data.index)
     for s in range(len(asy_data)):
         try:
@@ -260,7 +228,7 @@ if __name__ == '__main__':
         except:
             log.debug("Unexpected error:", sys.exc_info()[0])
 
-    asy_data.to_csv('data/raw/asylum_clean_full_sports_sample.csv')
+    asy_data.to_csv('data/raw/asylum_clean_full_sports.csv', index=False, index_label=False)
 
 
 
