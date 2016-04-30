@@ -6,14 +6,52 @@ from pandas import Series
 import sys
 import re
 import logging as log
+import cPickle as pickle
+import os.path
 
-log.basicConfig(filename='output.log',level=log.DEBUG)
+log.basicConfig(filename='output.log',level=log.ERROR)
 
 class LoadData:
-    nba_data = pd.read_csv('data/sportsData/NBA.csv', index_col=False)
-    nfl_data = pd.read_csv('data/sportsData/NFL.csv', index_col=False)
-    mlb_data = pd.read_csv('data/sportsData/MLB.csv', index_col=False)
-    nhl_data = pd.read_csv('data/sportsData/NHL.csv', sep=',', index_col=False)
+
+    def format_date(row):
+        date_list = row.split()
+        play_date = date_list[len(date_list)-1]
+        return dt.datetime.strptime(play_date, '%m/%d/%y').date()
+
+    all_sports_data = {}
+    print "loading sports data"
+    if os.path.isfile("data/raw/sports_fast_lookup"):
+        all_sports_data = pickle.load(open("data/raw/sports_fast_lookup", "rb"))
+        print "loaded sports data"
+    else:
+        print "sports data not on file, loading"
+        nba_data_matrix = pd.read_csv('data/sportsData/NBA.csv', index_col=False).as_matrix()
+        nfl_data_matrix = pd.read_csv('data/sportsData/NFL.csv', index_col=False).as_matrix()
+        mlb_data_matrix = pd.read_csv('data/sportsData/MLB.csv', index_col=False).as_matrix()
+        nhl_data_matrix = pd.read_csv('data/sportsData/NHL.csv', sep=',', index_col=False).as_matrix()
+
+        for row in nba_data_matrix:
+            date = format_date(row[2])
+            team_name = row[0]
+            result = row[9]
+            all_sports_data[str(date) + team_name + "nba"] = result
+        for row in nfl_data_matrix:
+            date = format_date(row[2])
+            team_name = row[0]
+            result = row[9]
+            all_sports_data[str(date) + team_name + "nfl"] = result
+        for row in mlb_data_matrix:
+            date = format_date(row[2])
+            team_name = row[0]
+            result = row[10]
+            all_sports_data[str(date) + team_name + "mlb"] = result
+        for row in nhl_data_matrix:
+            date = format_date(row[2])
+            team_name = row[0]
+            result = row[10]
+            all_sports_data[str(date) + team_name + "nhl"] = result
+        pickle.dump(all_sports_data, open("data/raw/sports_fast_lookup", "wb"))
+        print "sports data saved"
 
     nfl_team_by_state = {'Arizona':['Arizona Cardinals'],
                              'Georgia':['Atlanta Falcons'],
@@ -101,10 +139,6 @@ class LoadData:
                             'Texas':['Dallas Stars'],
                             'DC':['Washington Capitals']
                         }
-def format_date(row):
-    date_list = row['Date'].split()
-    play_date = date_list[len(date_list)-1]
-    return dt.datetime.strptime(play_date, '%m/%d/%y').date()
 
 # Need to get these values play_team_nba, play_team_nfl, play_team_mlb, play_team_nhl from map object
 def win_score(data, play_date, judge_states):
@@ -124,7 +158,7 @@ def win_score(data, play_date, judge_states):
             play_team_nhl = play_team_nhl+data.nhl_team_by_state[judge_state]
 
     # print d.datetime.strptime(play_date, '%m/%d/%y').date() - timedelta(days= 1)
-    data.nba_data['date_format'] = data.nba_data.apply(lambda row: format_date(row), axis=1)
+    # data.nba_data['date_format'] = data.nba_data.apply(lambda row: format_date(row), axis=1)
     days_range = []
     win_percent = 0.0
     sport_count = 0
@@ -134,48 +168,59 @@ def win_score(data, play_date, judge_states):
     total_games = 0
     won_games = 0
     for nba_team in play_team_nba:
-        filtered_data = data.nba_data[(data.nba_data['date_format'].isin(days_range)) & (data.nba_data['Team']
-                                                                                         .str.contains(nba_team))]
-        total_games = total_games + len(filtered_data)
-        won_games = won_games + len(filtered_data[filtered_data['Game Result'] == 'W'])
+        for day in days_range:
+            filtered_data.append(data.all_sports_data[day + nba_team + "nba"])
+            # filtered_data = data.nba_data[(data.nba_data['date_format'].isin(days_range)) & (data.nba_data['Team']
+                                                                                         # .str.contains(nba_team))]
+        # total_games = total_games + len(filtered_data)
+        # won_games = won_games + len(filtered_data[filtered_data['Game Result'] == 'W'])
         # if total_games != 0:
         #     win_percent = win_percent + won_games/float(total_games)
         #     sport_count = sport_count + 1
 
-    data.nfl_data['date_format'] = data.nfl_data.apply(lambda row: format_date(row), axis=1)
+    # data.nfl_data['date_format'] = data.nfl_data.apply(lambda row: format_date(row), axis=1)
     for nfl_team in play_team_nfl:
-        filtered_data = data.nfl_data[(data.nfl_data['date_format'].isin(days_range)) & (data.nfl_data['Team']
-                                                                                         .str.contains(nfl_team))]
-        total_games = total_games + len(filtered_data)
-        won_games = won_games + len(filtered_data[filtered_data['Game Result'] == 'W'])
+        for day in days_range:
+            filtered_data.append(data.all_sports_data[day + nfl_team + "nfl"])
+        # filtered_data = data.nfl_data[(data.nfl_data['date_format'].isin(days_range)) & (data.nfl_data['Team']
+                                                                                         # .str.contains(nfl_team))]
+        # total_games = total_games + len(filtered_data)
+        # won_games = won_games + len(filtered_data[filtered_data['Game Result'] == 'W'])
         # if total_games != 0:
         #     win_percent = win_percent + won_games/float(total_games)
         #     sport_count = sport_count + 1
 
-    data.mlb_data['date_format'] = data.mlb_data.apply(lambda row: format_date(row), axis=1)
+    # data.mlb_data['date_format'] = data.mlb_data.apply(lambda row: format_date(row), axis=1)
     for mlb_team in play_team_mlb:
-        filtered_data = data.mlb_data[(data.mlb_data['date_format'].isin(days_range)) & (data.mlb_data['Team']
-                                                                                         .str.contains(mlb_team))]
-        total_games = total_games + len(filtered_data)
-        won_games = won_games + len(filtered_data[filtered_data['Game Result'] == 'W'])
+        for day in days_range:
+            filtered_data.append(data.all_sports_data[day + mlb_team + "mlb"])
+        # filtered_data = data.mlb_data[(data.mlb_data['date_format'].isin(days_range)) & (data.mlb_data['Team']
+                                                                                         # .str.contains(mlb_team))]
+        # total_games = total_games + len(filtered_data)
+        # won_games = won_games + len(filtered_data[filtered_data['Game Result'] == 'W'])
         # if total_games != 0:
         #     win_percent = win_percent + won_games/float(total_games)
         #     sport_count = sport_count + 1
 
-    data.nhl_data['date_format'] = data.nhl_data.apply(lambda row: format_date(row), axis=1)
+    # data.nhl_data['date_format'] = data.nhl_data.apply(lambda row: format_date(row), axis=1)
     for nhl_team in play_team_nhl:
-        filtered_data = data.nhl_data[(data.nhl_data['date_format'].isin(days_range)) & (data.nhl_data['Team']
-                                                                                         .str.contains(nhl_team))]
-        total_games = total_games + len(filtered_data)
-        won_games = won_games + len(filtered_data[filtered_data['Game Result'] == 'W'])
+        for day in days_range:
+            filtered_data.append(data.all_sports_data[day + nhl_team + "nhl"])
+        # filtered_data = data.nhl_data[(data.nhl_data['date_format'].isin(days_range)) & (data.nhl_data['Team']
+        #                                                                                  .str.contains(nhl_team))]
+        # total_games = total_games + len(filtered_data)
+        # won_games = won_games + len(filtered_data[filtered_data['Game Result'] == 'W'])
         # if total_games != 0:
         #     win_percent = win_percent + won_games/float(total_games)
         #     sport_count = sport_count + 1
+
+    total_games = len(filtered_data)
+    won_games = [x == "W" for x in filtered_data]
 
     if total_games != 0:
             return won_games/float(total_games)
     else:
-        return None
+        return 0.5
     # if sport_count != 0:
     #     return win_percent/sport_count
     # else:
@@ -188,12 +233,13 @@ def getCompletionDate(stata_date):
 
 if __name__ == '__main__':
     data = LoadData();
-    asy_data = pd.read_csv('data/asylum_clean_full.csv')
-    asy_data['sports_score'] = Series(np.random.randn(len(asy_data)), index=asy_data.index)
+    asy_data = pd.read_csv('data/raw/asylum_clean_full.csv')[:20]
+    # asy_data['sports_score'] = Series(np.random.randn(len(asy_data)), index=asy_data.index)
+    sports_scores = []
     for s in range(len(asy_data)):
         try:
-            log.debug('==============================================================================')
-            log.debug('Row#', s)
+            log.error('==============================================================================')
+            # log.error('Row#', str(s))
             date_of_interest = getCompletionDate(asy_data['comp_date'][s].astype(int)).strftime('%m/%d/%y')
             locations_of_interest = set()
             if isinstance(asy_data['JudgeUndergradLocation'][s], basestring):
@@ -203,12 +249,16 @@ if __name__ == '__main__':
             # print re.split(';|,', asy_data['Bar'][s])
             if isinstance(asy_data['Bar'][s], basestring):
                 locations_of_interest |= set(map(str.strip, re.split(';|,', asy_data['Bar'][s])))
-            log.debug(locations_of_interest)
-            log.debug(date_of_interest)
+            log.error(locations_of_interest)
+            log.error(date_of_interest)
             if locations_of_interest is not None and len(locations_of_interest) != 0 and date_of_interest is not None:
-                asy_data['sports_score'][s] = win_score(data, date_of_interest, locations_of_interest)
-                log.debug('%.4f'% asy_data['sports_score'][s])
+                sports_scores.append(win_score(data, date_of_interest, locations_of_interest))
+                # log.error('%.4f'% asy_data['sports_score'][s])
         except:
-            log.debug("Unexpected error:", sys.exc_info()[0])
+            log.error("Unexpected error:", str(sys.exc_info()[0]))
+    asy_data["sports_score"] = sports_scores
+    asy_data.to_csv('data/raw/asylum_clean_full_sports.csv')
 
-    asy_data.to_csv('data/asylum_clean_full_updated.csv')
+
+
+
