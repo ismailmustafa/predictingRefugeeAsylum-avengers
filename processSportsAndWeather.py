@@ -367,13 +367,11 @@ def main():
     data = LoadData()
     sports_data, weather_data = sports_weather_handler(data)
 
-    print sports_data
-    print weather_data
+    data.asylum_data["sports_score"] = sports_data
+    data.asylum_data["weather_score"] = weather_data
 
-    # data.asylum_data["sports_score"] = sports_data
-    # data.asylum_data["weather_score"] = weather_data
-
-    # data.asylum_data.to_csv('data/raw/asylum_clean_full_sports.csv', index=False, index_label=False)
+    data.asylum_data.to_csv('data/raw/asylum_clean_full_cluster.csv', index=False, index_label=False)
+    print "written to file. Done!"
 
 
 if __name__ == '__main__':

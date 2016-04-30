@@ -4,41 +4,48 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import ListedColormap
 
+def calculate_kMeans(data, number_of_clusters):
+	X = np.transpose(np.array([data['sports_score'].values, data['weather_score'].values]))
+	k_means = cluster.KMeans(n_clusters=number_of_clusters)
+	k_means.fit(X)
+	y = k_means.labels_[::]
+	return y
 
-data = pd.read_csv('data/raw/asylum_clean_full_test.csv')
-x = data['sports_score'].values
-for i in x:
-	print i
-y = data['weather_score'].values
-print max(x)
-print min(x)
-plt.scatter(x, y)
-plt.show()
-# X = np.transpose(np.array([data['sports_score'].values, data['weather_score'].values]))
-# print X.shape
+# variable up to 8 clusters
+def generate_colors(y):
+	colors = []
+	for i in y:
+		if i == 0:
+			colors.append('blue')
+		elif i == 1:
+			colors.append('green')
+		elif i == 2:
+			colors.append('red')
+		elif i == 3:
+			colors.append('cyan')
+		elif i == 4:
+			colors.append('magenta')
+		elif i == 5:
+			colors.append('yellow')
+		elif i == 6:
+			colors.append('black')
+		else:
+			colors.append('white')
+	return colors
 
-# k_means = cluster.KMeans(n_clusters=3)
-# k_means.fit(X)
-# y = k_means.labels_[::]
-# h = .02
-# # Create color maps
-# cmap_light = ListedColormap(['#FFAAAA', '#AAFFAA', '#AAAAFF'])
-# cmap_bold = ListedColormap(['#FF0000', '#00FF00', '#0000FF'])
+def plot(data, colors):
+	plt.ylim(0.0, 1.0)
+	plt.xlim(0.0, 1.0)
+	plt.title("mood clustering")
+	plt.xlabel("sports score")
+	plt.ylabel("weather score")
+	plt.scatter(data['sports_score'].values, data['weather_score'].values,color=colors)
+	plt.show()
 
-# # Plot the decision boundary. For that, we will assign a color to each
-# # point in the mesh [x_min, m_max]x[y_min, y_max].
-# x_min, x_max = X[:, 0].min() - 1, X[:, 0].max() + 1
-# y_min, y_max = X[:, 1].min() - 1, X[:, 1].max() + 1
-# xx, yy = np.meshgrid(np.arange(x_min, x_max, h),
-#                      np.arange(y_min, y_max, h))
-# Z = y
+def main():
+	number_of_clusters = 2 # program can handle 2 - 8
+	data = pd.read_csv('data/raw/asylum_clean_full_cluster.csv')
+	plot(data, generate_colors(calculate_kMeans(data, number_of_clusters)))
 
-# # Put the result into a color plot
-# Z = Z.reshape(xx.shape)
-# plt.figure()
-# plt.pcolormesh(xx, yy, Z, cmap=cmap_light)
-
-# # Plot also the training points
-# plt.scatter(X[:, 0], X[:, 1], c=y, cmap=cmap_bold)
-# plt.xlim(xx.min(), xx.max())
-# plt.ylim(yy.min(), yy.max())
+if __name__ == '__main__':
+  main()
