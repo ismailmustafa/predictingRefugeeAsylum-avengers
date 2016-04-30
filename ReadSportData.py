@@ -191,7 +191,7 @@ def win_score(data, play_date, judge_states):
                 filtered_data.append(data.all_sports_data[key])
 
     total_games = len(filtered_data)
-    won_games = [x for x in filtered_data if x == "W"]
+    won_games = [x for x in filtered_data if x == 'W']
 
     if total_games != 0:
         return len(won_games)/float(total_games)
@@ -209,8 +209,8 @@ if __name__ == '__main__':
     asy_data['sports_score'] = Series(np.random.randn(len(asy_data)), index=asy_data.index)
     for s in range(len(asy_data)):
         try:
-            log.error('==============================================================================')
-            log.error('Row#', str(s))
+            log.debug('==============================================================================')
+            log.debug('Row#', str(s))
             date_of_interest = getCompletionDate(asy_data['comp_date'][s].astype(int)).strftime('%m/%d/%y')
             locations_of_interest = set()
             if isinstance(asy_data['JudgeUndergradLocation'][s], basestring):
@@ -224,7 +224,7 @@ if __name__ == '__main__':
             log.debug(date_of_interest)
             if locations_of_interest is not None and len(locations_of_interest) != 0 and date_of_interest is not None:
                 asy_data['sports_score'][s] = win_score(data, date_of_interest, locations_of_interest)
-                log.debug('%.4f'% asy_data['sports_score'][s])
+                print ('%.4f'% asy_data['sports_score'][s])
         except:
             log.debug("Unexpected error:", sys.exc_info()[0])
 
