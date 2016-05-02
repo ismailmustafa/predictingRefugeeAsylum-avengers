@@ -43,9 +43,26 @@ def plot(data, colors):
 	plt.show()
 
 def main():
-	number_of_clusters = 2 # program can handle 2 - 8
+
+	# load data
 	data = pd.read_csv('data/raw/asylum_clean_full_cluster.csv')
+	number_of_clusters = 2 # program can handle 2 - 8
 	plot(data, generate_colors(calculate_kMeans(data, number_of_clusters)))
+	
+	# # calculate k means clustering for 2-8 clusters
+	# mood_kMeans = []
+	# for k in np.arange(2,9):
+	# 	y = calculate_kMeans(data, k)
+	# 	mood_kMeans.append(y)
+
+	# # append columns to asylum data
+	# for k,y in enumerate(mood_kMeans):
+	# 	key = "mood_k" + str(k+2)
+	# 	data[key] = y
+
+	# # write all clustering columns to new data set
+	# data.to_csv('data/raw/asylum_clean_full_mood.csv', index=False, index_label=False)
+
 
 if __name__ == '__main__':
   main()
