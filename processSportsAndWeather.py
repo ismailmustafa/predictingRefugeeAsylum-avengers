@@ -8,9 +8,69 @@ import re
 import cPickle as pickle
 import os.path
 import math
+def nanCheck(val):
+    if (type(val) is float and val < -9970.0) or (type(val) is int and val < -9970):
+            return float('nan')
+    return val
+
+def temp_score(tavg):
+    # return 1 - (abs(tavg - 136.0) / max_tavg)
+    if tavg <= 0.0 or tavg >= 272:
+        return 0.0
+    else:
+        return 1.0 - (abs(tavg - 136.0) / 136.0)
+
+def safe_divide(val, max_val):
+    if not math.isnan(val):
+        return float(val) / float(max_val)
+    else:
+        return val
+
+# determine weights for weather score
+def weights(weather_data):
+    weights = []
+    weight_count = 0
+    for val in weather_data:
+        if not math.isnan(val):
+            weight_count += 1
+    for i in range(weight_count):
+        weights.append(1.0/float(weight_count))
+    return weights
+
+def applyWeights(weights, weather_data):
+    weight_index = 0
+    score = 0.0
+    for val in weather_data:
+        if not math.isnan(val):
+            score += weights[weight_index]*float(val)
+            weight_index += 1
+    return score
+
+def compute_score(weather_scores):
+    if len(weather_scores) == 0:
+        return 0.0
+    return sum(weather_scores) / float(len(weather_scores))
+
+# convert stata date to string
+def getCompletionDate(stata_date):
+    date1960Jan1 = dt.datetime(1960,01,01)
+    return date1960Jan1.date() + dt.timedelta(days=stata_date)
 
 class LoadData:
 
+    #------------------- TWITTER DATA -----------------------
+    all_twitter_data = {}
+    print "---loading twitter data"
+    if os.path.isfile("data/raw/twitter_fast_lookup"):
+        all_twitter_data = pickle.load(open("data/raw/twitter_fast_lookup", "rb"))
+        print "---loaded twitter data"
+    else:
+        print "---twitter data not on file, loading"
+        for row in open('data/raw/mood-city.txt'):
+            temp = row.split('\t')
+            all_twitter_data[temp[0]+temp[1].lower()] = temp[3]
+        pickle.dump(all_twitter_data, open("data/raw/twitter_fast_lookup", "wb"))
+        print "---twitter data saved"
     # ------------------- SPORTS DATA ------------------------
     def format_date(row):
         date_list = row.split()
@@ -33,22 +93,22 @@ class LoadData:
             date = format_date(row[2])
             team_name = row[0]
             result = row[9]
-            all_sports_data[str(date) + team_name + "nba"] = result
+            all_sports_data[str(date) + team_name.lower() + "nba"] = result
         for row in nfl_data_matrix:
             date = format_date(row[2])
             team_name = row[0]
             result = row[9]
-            all_sports_data[str(date) + team_name + "nfl"] = result
+            all_sports_data[str(date) + team_name.lower() + "nfl"] = result
         for row in mlb_data_matrix:
             date = format_date(row[2])
             team_name = row[0]
             result = row[10]
-            all_sports_data[str(date) + team_name + "mlb"] = result
+            all_sports_data[str(date) + team_name.lower() + "mlb"] = result
         for row in nhl_data_matrix:
             date = format_date(row[2])
             team_name = row[0]
-            result = row[10]
-            all_sports_data[str(date) + team_name + "nhl"] = result
+            result = row[11]
+            all_sports_data[str(date) + team_name.lower() + "nhl"] = result
         pickle.dump(all_sports_data, open("data/raw/sports_fast_lookup", "wb"))
         print "---sports data saved"
 
@@ -222,25 +282,25 @@ def calculate_sports_score(data, play_date, judge_states):
 
     for nba_team in play_team_nba:
         for day in days_range:
-            key = str(day) + nba_team + "nba"
+            key = str(day) + nba_team.lower() + "nba"
             if key in data.all_sports_data:
                 filtered_data.append(data.all_sports_data[key])
 
     for nfl_team in play_team_nfl:
         for day in days_range:
-            key = str(day) + nfl_team + "nfl"
+            key = str(day) + nfl_team.lower() + "nfl"
             if key in data.all_sports_data:
                 filtered_data.append(data.all_sports_data[key])
 
     for mlb_team in play_team_mlb:
         for day in days_range:
-            key = str(day) + mlb_team + "mlb"
+            key = str(day) + mlb_team.lower() + "mlb"
             if key in data.all_sports_data:
                 filtered_data.append(data.all_sports_data[key])
 
     for nhl_team in play_team_nhl:
         for day in days_range:
-            key = str(day) + nhl_team + "nhl"
+            key = str(day) + nhl_team.lower() + "nhl"
             if key in data.all_sports_data:
                 filtered_data.append(data.all_sports_data[key])
 
@@ -255,12 +315,14 @@ def calculate_sports_score(data, play_date, judge_states):
 def sports_weather_handler(data):
     all_sports_scores = []
     all_weather_scores = []
+    all_twitter_scores = []
     for i in range(len(data.asylum_data)):
         all_sports_scores.append(sports_handler(data, i))
         all_weather_scores.append(weather_handler(data, i))
+        all_twitter_scores.append(twitter_handler(data, i))
         if i % 10000 == 0:
             print "index at:", i
-    return all_sports_scores, all_weather_scores
+    return all_sports_scores, all_weather_scores, all_twitter_scores
 
 def sports_handler(data, i):
     try:
@@ -277,6 +339,18 @@ def sports_handler(data, i):
     except:
         return 0.5
     return 0.5
+
+def twitter_handler(data, i):
+    try:
+        date_of_interest = getCompletionDate(data.asylum_data['comp_date'][i].astype(int)).strftime('%Y-%m-%d')
+        city = data.asylum_data['Court_SLR'][i]
+        key = str(date_of_interest)+city.lower()
+        if key in data.all_twitter_data.keys():
+            return data.all_twitter_data[key]
+        else:
+            return None
+    except:
+        return None
 
 def weather_handler(data, i):
     # Get date of completion from row
@@ -314,61 +388,14 @@ def weather_handler(data, i):
         return compute_score(weather_scores)
     return 0.5
 
-def nanCheck(val):
-    if (type(val) is float and val < -9970.0) or (type(val) is int and val < -9970):
-            return float('nan')
-    return val
-
-def temp_score(tavg):
-    # return 1 - (abs(tavg - 136.0) / max_tavg)
-    if tavg <= 0.0 or tavg >= 272:
-        return 0.0
-    else:
-        return 1.0 - (abs(tavg - 136.0) / 136.0)
-
-def safe_divide(val, max_val):
-    if not math.isnan(val):
-        return float(val) / float(max_val)
-    else:
-        return val
-
-# determine weights for weather score
-def weights(weather_data):
-    weights = []
-    weight_count = 0
-    for val in weather_data:
-        if not math.isnan(val):
-            weight_count += 1
-    for i in range(weight_count):
-        weights.append(1.0/float(weight_count))
-    return weights
-
-def applyWeights(weights, weather_data):
-    weight_index = 0
-    score = 0.0
-    for val in weather_data:
-        if not math.isnan(val):
-            score += weights[weight_index]*float(val)
-            weight_index += 1
-    return score
-
-def compute_score(weather_scores):
-    if len(weather_scores) == 0:
-        return 0.0
-    return sum(weather_scores) / float(len(weather_scores))
-
-# convert stata date to string
-def getCompletionDate(stata_date):
-    date1960Jan1 = dt.datetime(1960,01,01)
-    return date1960Jan1.date() + dt.timedelta(days=stata_date)
-
 def main():
     # load sports, weather, and asylum data
     data = LoadData()
-    sports_data, weather_data = sports_weather_handler(data)
+    sports_data, weather_data, twitter_score = sports_weather_handler(data)
 
     data.asylum_data["sports_score"] = sports_data
     data.asylum_data["weather_score"] = weather_data
+    data.asylum_data["twitter_score"] = twitter_score
 
     data.asylum_data.to_csv('data/raw/asylum_clean_full_cluster.csv', index=False, index_label=False)
     print "written to file. Done!"

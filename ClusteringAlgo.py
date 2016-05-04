@@ -5,6 +5,8 @@ import numpy as np
 from matplotlib.colors import ListedColormap
 
 def calculate_kMeans(data, number_of_clusters):
+	data_filtered = data[np.isfinite(data['twitter_score'])]
+	print len(data_filtered)
 	X = np.transpose(np.array([data['sports_score'].values, data['weather_score'].values]))
 	k_means = cluster.KMeans(n_clusters=number_of_clusters)
 	k_means.fit(X)
@@ -48,7 +50,7 @@ def main():
 	data = pd.read_csv('data/raw/asylum_clean_full_cluster.csv')
 	number_of_clusters = 2 # program can handle 2 - 8
 	plot(data, generate_colors(calculate_kMeans(data, number_of_clusters)))
-	
+
 	# # calculate k means clustering for 2-8 clusters
 	# mood_kMeans = []
 	# for k in np.arange(2,9):
