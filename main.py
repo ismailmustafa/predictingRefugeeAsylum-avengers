@@ -90,15 +90,12 @@ def load_and_process_data():
 	asylum_data = pandas.read_csv("data/raw/asylum_data_full.csv")
 	data = asylum_data.as_matrix()
 
-	# select specific X columns as features
 	# original (----- use this as baseline -----)
 	#X_raw = data[:, [5, 6, 8, 11, 12, 15, 19, 21, 22, 23, 30, 31, 33, 34, 35, 36, 37, 39, 52, 53, 54, 55, 56, 58]]
-	# with mood (mood_k2 at index 91, mood_k8 at index 97)
-	#X_raw = data[:, [5, 6, 8, 11, 12, 15, 19, 21, 22, 23, 30, 31, 33, 34, 35, 36, 37, 39, 52, 53, 54, 55, 56, 58, 89, 90]]
 
 	# numeric data features
 	X_raw = data[:, [4		# hearing date
-									,5		# laywer
+								  ,5		# laywer
 									,6		# defensive 
 									,7		# nationality id
 									,8		# decision is written

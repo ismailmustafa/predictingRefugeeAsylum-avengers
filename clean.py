@@ -7,9 +7,72 @@ import cPickle as pickle
 import os.path
 import math
 import sys
+from collections import Counter
 
 def main():
-	addNationality()
+	clean_format()
+
+def load_bios():
+	all_bios = []
+	bios = glob.glob("data/raw/bio/*.txt")
+	for b in bios:
+		bio = open(b,'r')
+		all_bios.append(bio.read())
+		bio.close()
+	return all_bios
+
+def clean_format():
+	data = pandas.read_csv("data/raw/bios_clean.csv")
+	all_output = "ij_code,first_name,last_name,decisions,percent_denial\n"
+	for row in data.iterrows():
+		output = str(row[1]['ij_code']) + "," + str(row[1]['FirstName']) + "," + str(row[1]['LastName']) + "," ",\n"
+		all_output += output
+	csv_file = open("data/raw/bio_decisions.csv", "w")
+	csv_file.write(all_output)
+	csv_file.close()
+
+
+def extract_degree():
+	all_bios = load_bios()
+	data = pandas.read_csv("data/raw/bios_clean.csv")
+	i = 0
+	all_output = "ij_code,FirstName,LastName,degree\n"
+	for row in data.iterrows():
+		last_name = str(row[1]['LastName'])
+		year_appointed = ""
+		if not math.isnan(row[1]['Year_Appointed_SLR']):
+			year_appointed = str(int(row[1]['Year_Appointed_SLR']))
+		elif not math.isnan(row[1]['YearofFirstUndergradGraduatio']):
+			year_appointed = str(int(row[1]['YearofFirstUndergradGraduatio']))
+
+		degree = get_degree(all_bios, last_name, year_appointed)
+		output = str(row[1]['ij_code']) + "," + str(row[1]['FirstName']) + "," + str(row[1]['LastName']) + "," + degree + "\n"
+		all_output += output
+	csv_file = open("data/raw/bio_degree_new.csv", "w")
+	csv_file.write(all_output)
+	csv_file.close()
+
+def get_degree(all_bios, last_name, year_appointed):
+	num_found = 0
+	bio_found = ""
+	for b in all_bios:
+		res1 = b.find(last_name)
+		res2 = b.find(year_appointed)
+		if res1 != -1 and res2 != -1:
+			num_found += 1
+			bio_found = b
+	if num_found == 1:
+		degree_index = bio_found.find("bachelor")
+		if degree_index != -1:
+			degree_list = bio_found[degree_index:degree_index+20].split()
+			degree = degree_list[0] + " " + degree_list[1] + " " + degree_list[2]
+			return degree
+	return ""
+
+
+
+
+
 
 
 def addNationality():
