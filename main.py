@@ -347,16 +347,8 @@ def adaboost_train(X_train, X_test, y_train, y_test, max_rounds=10):
 	y_train[y_train == 0] = -1
 	y_test[y_test == 0] = -1
 
-	rounds = np.arange(1,max_rounds+1)
-	train_errors = []
-	test_errors = []
-	for i in rounds:
-		train_error, test_error = adaboost(X_train, X_test, y_train, y_test, i)
-		print "num rounds:", i, "train score:", 1.0 - train_error, "test score:", 1.0 - test_error
-		train_errors.append(train_error)
-		test_errors.append(test_error)
-
-	train_test_score_plot(rounds, train_errors, test_errors, "Adaboost Classifier", "num rounds")
+	# run adaboost
+	adaboost(X_train, X_test, y_train, y_test, max_rounds)
 
 # train adaboost using decision tree weak classfier of depth 3
 def adaboost(X_train, X_test, y_train, y_test, M=10):
@@ -365,6 +357,10 @@ def adaboost(X_train, X_test, y_train, y_test, M=10):
 	alphas = []
 	weak_classifiers = []
 
+	train_errors = []
+	test_errors = []
+
+	rounds = np.arange(1,M+1)
 	for i in range(M):
 		# weak classifier
 		clf = DecisionTreeClassifier(max_depth=3).fit(X_train, y_train, sample_weight=weights)
@@ -379,14 +375,17 @@ def adaboost(X_train, X_test, y_train, y_test, M=10):
 
 		# adjust weights
 		p = clf.predict(X_train)
-		for i in range(len(weights)):
-			if p[i] != y_train[i]:
-				weights[i] = (weights[i] * np.exp(alpha))
+		for j in range(len(weights)):
+			if p[j] != y_train[j]:
+				weights[j] = (weights[j] * np.exp(alpha))
 
-	train_error = adaboost_error(X_train, y_train, alphas, weak_classifiers)
-	test_error  = adaboost_error(X_test, y_test, alphas, weak_classifiers)
+		train_error = adaboost_error(X_train, y_train, alphas, weak_classifiers)
+		test_error  = adaboost_error(X_test, y_test, alphas, weak_classifiers)
+		train_errors.append(train_error)
+		test_errors.append(test_error)
+		print "num rounds:", i+1, "train score:", 1.0 - train_error, "test score:", 1.0 - test_error
 
-	return (train_error, test_error)
+	train_test_score_plot(rounds, train_errors, test_errors, "Adaboost Classifier", "num rounds")
 
 # calculate error from adaboost training
 def adaboost_error(X,y,alphas,weak_classifiers):
