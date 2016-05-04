@@ -9,7 +9,63 @@ import math
 import sys
 
 def main():
-	weatherScore()
+	addNationality()
+
+
+def addNationality():
+	print "loading"
+	data = pandas.read_csv("data/raw/asylum_clean_full.csv")
+	nationality_idncase_lookup = loadNationalityIdncaseLookup()
+	print "loaded stuff"
+	all_nat = []
+	all_nationality = []
+	for row in data.iterrows():
+		idncase = row[1][0]
+		lookup = nationality_idncase_lookup[idncase]
+		nat = lookup[0]
+		nationality = lookup[1]
+		all_nat.append(nat)
+		all_nationality.append(nationality)
+	data["nat_code"] = all_nat
+	data["nationality"] = all_nationality
+	data.to_csv('data/raw/asylum_data_full.csv', index=False, index_label=False)
+
+def loadNationalityLookup():
+	if os.path.isfile("data/raw/nationality_fast_lookup"):
+		nationality_fast_lookup = pickle.load(open("data/raw/nationality_fast_lookup", "rb"))
+		return nationality_fast_lookup
+	else:
+		print "creating nationality lookup"
+		nationality_fast_lookup = {}
+		nationality = pandas.read_csv("data/raw/tblLookupNationality.csv", header=None).as_matrix()
+		for row in nationality:
+			code = row[1]
+			city = row[2]
+			nationality_fast_lookup[code] = city
+		pickle.dump(nationality_fast_lookup, open("data/raw/nationality_fast_lookup", "wb"))
+		print "nationality lookup already created"
+		return nationality_fast_lookup
+
+def loadNationalityIdncaseLookup():
+	nationality_idncase_lookup = {}
+	if os.path.isfile("data/raw/nationality_idncase_lookup"):
+		nationality_fast_lookup = pickle.load(open("data/raw/nationality_idncase_lookup", "rb"))
+		return nationality_fast_lookup
+	else:
+		print "creating nationality idncase lookup"
+		master = pandas.read_csv("data/raw/master.csv").as_matrix()
+		nationality_fast_lookup = loadNationalityLookup()
+		for row in master:
+			idncase = 999999999
+			if not math.isnan(row[0]):
+				idncase = int(row[0])
+			nat = row[1]
+			natLookup = "??"
+			if nat in nationality_fast_lookup:
+				natLookup = nationality_fast_lookup[nat]
+			nationality_idncase_lookup[idncase] = (nat, natLookup)
+		pickle.dump(nationality_idncase_lookup, open("data/raw/nationality_idncase_lookup", "wb"))
+		return nationality_idncase_lookup
 
 def convertWeatherFiles():
 	weatherFiles = glob.glob("data/clean/*.dta")
