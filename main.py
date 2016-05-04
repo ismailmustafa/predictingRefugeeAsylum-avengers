@@ -158,10 +158,6 @@ def load_and_process_data():
 																					 ,68	# other locations mentioned in bio
 																					 ,72	# court city
 																					 ,78	# president
-
-																					 ,87
-																					 ,89
-																					 ,90
 																					 ])
 
 	# custom features
