@@ -13,10 +13,12 @@ from sklearn.cross_validation import cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import Imputer
 from sklearn import preprocessing
+from sklearn.ensemble import GradientBoostingClassifier
+
 
 # specify classifiers used
 class Classifier:
-	Adaboost, DecisionTree, RandomForest = range(3)
+	Adaboost, DecisionTree, RandomForest, GBM = range(4)
 
 def main():
 	# specify classifier to use
@@ -32,6 +34,10 @@ def main():
 	elif selected_classifier == Classifier.RandomForest:
 		X, y = load_all_clean_data()
 		random_forest_train(X, y)
+	elif selected_classifier == Classifier.GBM:
+		X_train, X_test, y_train, y_test = load_and_process_data()
+		clf = GradientBoostingClassifier(X_train, y_train)
+		print 'Gradient Score : %0.4f'% clf.score(X_test, y_test)
 	else:
 		X_train, X_test, y_train, y_test = load_and_process_data()
 		decision_tree_train(X_train, X_test, y_train, y_test)
