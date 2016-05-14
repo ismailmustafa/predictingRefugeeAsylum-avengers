@@ -8,17 +8,16 @@ import re
 import cPickle as pickle
 import os.path
 import math
+import os
+from collections import defaultdict
+
 def nanCheck(val):
     if (type(val) is float and val < -9970.0) or (type(val) is int and val < -9970):
             return float('nan')
     return val
 
-def temp_score(tavg):
-    # return 1 - (abs(tavg - 136.0) / max_tavg)
-    if tavg <= 0.0 or tavg >= 272:
-        return 0.0
-    else:
-        return 1.0 - (abs(tavg - 136.0) / 136.0)
+def temp_score(tavg, max_tavg, min_tavg):
+    return (tavg - min_tavg) / (max_tavg - min_tavg)
 
 def safe_divide(val, max_val):
     if not math.isnan(val):
@@ -214,6 +213,7 @@ class LoadData:
 
         # initialize max values
         max_prcp = max_snow = max_snwd = max_tsun = max_tavg = sys.float_info.min
+        min_tavg = sys.float_info.max
 
         for weather_row in all_weather_matrix:
             date = weather_row[4]
@@ -237,6 +237,9 @@ class LoadData:
                 max_tsun = tsun
             if not math.isnan(tmax) and not math.isnan(tmin) and (abs(float(tmax) + float(tmin))/2.0) > max_tavg:
                 max_tavg = (abs(float(tmax) + float(tmin))/2.0)
+            if not math.isnan(tmax) and not math.isnan(tmin) and (abs(float(tmax) + float(tmin))/2.0) < min_tavg:
+                min_tavg = (abs(float(tmax) + float(tmin))/2.0)
+
 
         # set max values
         all_weather_data["max_prcp"] = max_prcp
@@ -244,106 +247,178 @@ class LoadData:
         all_weather_data["max_snwd"] = max_snwd
         all_weather_data["max_tsun"] = max_tsun
         all_weather_data["max_tavg"] = max_tavg
+        all_weather_data["min_tavg"] = min_tavg
 
         pickle.dump(all_weather_data, open("data/raw/weather_fast_lookup", "wb"))
         print "---saved weather data"
 
+    # ------------------- NATIONALITY DATA -------------------
+
+    naionality_fast_lookup = {}
+    if os.path.isfile("data/raw/nationality_fast_lookup"):
+        nationality_fast_lookup = pickle.load(open("data/raw/nationality_fast_lookup", "rb"))
+    else:
+        print "creating nationality lookup"
+        nationality_fast_lookup = {}
+        nationality = pandas.read_csv("data/raw/tblLookupNationality.csv", header=None).as_matrix()
+        for row in nationality:
+            code = row[1]
+            city = row[2]
+            nationality_fast_lookup[code] = city
+        pickle.dump(nationality_fast_lookup, open("data/raw/nationality_fast_lookup", "wb"))
+        print "nationality lookup already created"
+
+    nationality_idncase_lookup = {}
+    if os.path.isfile("data/raw/nationality_idncase_lookup"):
+        nationality_idncase_lookup = pickle.load(open("data/raw/nationality_idncase_lookup", "rb"))
+    else:
+        print "creating nationality idncase lookup"
+        master = pandas.read_csv("data/raw/master.csv").as_matrix()
+        nationality_idncase_lookup = loadNationalityLookup()
+        for row in master:
+            idncase = 999999999
+            if not math.isnan(row[0]):
+                idncase = int(row[0])
+            nat = row[1]
+            natLookup = "??"
+            if nat in nationality_idncase_lookup:
+                natLookup = nationality_idncase_lookup[nat]
+            nationality_idncase_lookup[idncase] = (nat, natLookup)
+        pickle.dump(nationality_idncase_lookup, open("data/raw/nationality_idncase_lookup", "wb"))
+
+    # ------------------- BIOS -------------------------------
+
+    input_data = pd.read_csv("data/raw/tblLookupBaseCity.csv")
+    city_lookup_matrix = input_data.as_matrix()
+    city_lookup = []
+    for row in city_lookup_matrix:
+        city_lookup.append([row[1].strip(), row[5].strip()])
+    data = np.asarray(city_lookup)
+    df = pd.DataFrame(data=data, columns=["hearing_loc_code", "city"])
+    df.to_csv('data/raw/cityLookup.csv', index=False, index_label=False)
+
     # ------------------- ASYLUM DATA ------------------------
     print "---loading asylum data"
-    asylum_data = pd.read_csv("data/raw/asylum_clean_full.csv")
+    asylum_data = pd.read_csv("data/raw/asylum_clean.csv")
     print "---loaded asylum data"
 
 
 # Need to get these values play_team_nba, play_team_nfl, play_team_mlb, play_team_nhl from map object
 def calculate_sports_score(data, play_date, judge_states):
-    play_team_mlb = []
-    play_team_nba = []
-    play_team_nfl = []
-    play_team_nhl = []
+    locations = ["undergrad", "lawschool", "bar"]
+    play_team_mlb = defaultdict(list)
+    play_team_nba = defaultdict(list)
+    play_team_nfl = defaultdict(list)
+    play_team_nhl = defaultdict(list)
 
-    for judge_state in judge_states:
+    # undergrad, lawschool, bar
+
+    for location in locations:
+        judge_state = judge_states[location]
         if judge_state in data.mlb_team_by_state.keys():
-            play_team_mlb = play_team_mlb+data.mlb_team_by_state[judge_state]
+            for x in data.mlb_team_by_state[judge_state]:
+                play_team_mlb[location].append(x)
         if judge_state in data.nba_team_by_state.keys():
-            play_team_nba = play_team_nba+data.nba_team_by_state[judge_state]
+            for x in data.nba_team_by_state[judge_state]:
+                play_team_nba[location].append(x)
         if judge_state in data.nfl_team_by_state.keys():
-            play_team_nfl = play_team_nfl+data.nfl_team_by_state[judge_state]
+            for x in data.nfl_team_by_state[judge_state]:
+                play_team_nfl[location].append(x)
         if judge_state in data.nhl_team_by_state.keys():
-            play_team_nhl = play_team_nhl+data.nhl_team_by_state[judge_state]
+            for x in data.nhl_team_by_state[judge_state]:
+                play_team_nhl[location].append(x)
 
     days_range = []
-    win_percent = 0.0
-    sport_count = 0
     for i in range(0,5):
         days_range.append(dt.datetime.strptime(play_date, '%m/%d/%y').date() - timedelta(days= i))
-    filtered_data = []
-    total_games = 0
-    won_games = 0
 
-    for nba_team in play_team_nba:
+    column = {"nba_undergrad" : 0, "nba_lawschool" : 0, "nba_bar" : 0,
+              "mlb_undergrad" : 0, "mlb_lawschool" : 0, "mlb_bar" : 0,
+              "nfl_undergrad" : 0, "nfl_lawschool" : 0, "nfl_bar" : 0,
+              "nhl_undergrad" : 0, "nhl_lawschool" : 0, "nhl_bar" : 0}
+
+    for location in locations:
+        nba_teams = play_team_nba[location]
         for day in days_range:
-            key = str(day) + nba_team.lower() + "nba"
-            if key in data.all_sports_data:
-                filtered_data.append(data.all_sports_data[key])
+            for nba_team in nba_teams:
+                key = str(day) + nba_team + "nba"
+                if key in data.all_sports_data:
+                    outcome = data.all_sports_data[key]
+                    if outcome == 'W':
+                        column["nba_" + location] += 1
 
-    for nfl_team in play_team_nfl:
+    for location in locations:
+        nfl_teams = play_team_nfl[location]
         for day in days_range:
-            key = str(day) + nfl_team.lower() + "nfl"
-            if key in data.all_sports_data:
-                filtered_data.append(data.all_sports_data[key])
+            for nfl_team in nfl_teams:
+                key = str(day) + nfl_team + "nfl"
+                if key in data.all_sports_data:
+                    outcome = data.all_sports_data[key]
+                    if outcome == 'W':
+                        column["nfl_" + location] += 1
 
-    for mlb_team in play_team_mlb:
+    for location in locations:
+        mlb_teams = play_team_mlb[location]
         for day in days_range:
-            key = str(day) + mlb_team.lower() + "mlb"
-            if key in data.all_sports_data:
-                filtered_data.append(data.all_sports_data[key])
+            for mlb_team in mlb_teams:
+                key = str(day) + mlb_team + "mlb"
+                if key in data.all_sports_data:
+                    outcome = data.all_sports_data[key]
+                    if outcome == 'W':
+                        column["mlb_" + location] += 1
 
-    for nhl_team in play_team_nhl:
+    for location in locations:
+        nhl_teams = play_team_nhl[location]
         for day in days_range:
-            key = str(day) + nhl_team.lower() + "nhl"
-            if key in data.all_sports_data:
-                filtered_data.append(data.all_sports_data[key])
+            for nhl_team in nhl_teams:
+                key = str(day) + nhl_team + "nhl"
+                if key in data.all_sports_data:
+                    outcome = data.all_sports_data[key]
+                    if outcome == 'W':
+                        column["nhl_" + location] += 1
 
-    total_games = len(filtered_data)
-    won_games = [x for x in filtered_data if x == 'W']
-
-    if total_games != 0:
-        return len(won_games)/float(total_games)
-    else:
-        return 0.5
+    return column
 
 def sports_weather_handler(data):
     all_sports_scores = []
-    all_weather_scores = []
+    all_weather_values = []
     all_twitter_scores = []
     for i in range(len(data.asylum_data)):
-        all_sports_scores.append(sports_handler(data, i))
-        all_weather_scores.append(weather_handler(data, i))
+        sports_column = sports_handler(data, i)
+        all_sports_scores.append(sports_column)
+        all_weather_values.append(weather_handler(data, i))
         all_twitter_scores.append(twitter_handler(data, i))
         if i % 10000 == 0:
             print "index at:", i
-    return all_sports_scores, all_weather_scores, all_twitter_scores
+    return all_sports_scores, all_weather_values, all_twitter_scores
 
 def sports_handler(data, i):
     try:
         date_of_interest = getCompletionDate(data.asylum_data['comp_date'][i].astype(int)).strftime('%m/%d/%y')
-        locations_of_interest = set()
+        locations_of_interest = {}
+        # locations_of_interest = set()
         if isinstance(data.asylum_data['JudgeUndergradLocation'][i], basestring):
-            locations_of_interest.add(data.asylum_data['JudgeUndergradLocation'][i].split(',')[1].strip())
+            locations_of_interest['undergrad'] = data.asylum_data['JudgeUndergradLocation'][i].split(',')[1].strip()
         if isinstance(data.asylum_data['JudgeLawSchoolLocation'][i], basestring):
-            locations_of_interest.add(data.asylum_data['JudgeLawSchoolLocation'][i].split(',')[1].strip())
+            locations_of_interest['lawschool'] = data.asylum_data['JudgeLawSchoolLocation'][i].split(',')[1].strip()
         if isinstance(data.asylum_data['Bar'][i], basestring):
-            locations_of_interest |= set(map(str.strip, re.split(';|,', data.asylum_data['Bar'][i])))
+            locations_of_interest['bar'] = map(str.strip, re.split(';|,', data.asylum_data['Bar'][i]))[0]
         if locations_of_interest is not None and len(locations_of_interest) != 0 and date_of_interest is not None:
             return calculate_sports_score(data, date_of_interest, locations_of_interest)
     except:
-        return 0.5
-    return 0.5
+        return {"nba_undergrad" : 0, "nba_lawschool" : 0, "nba_bar" : 0,
+                "mlb_undergrad" : 0, "mlb_lawschool" : 0, "mlb_bar" : 0,
+                "nfl_undergrad" : 0, "nfl_lawschool" : 0, "nfl_bar" : 0,
+                "nhl_undergrad" : 0, "nhl_lawschool" : 0, "nhl_bar" : 0}
+    return {"nba_undergrad" : 0, "nba_lawschool" : 0, "nba_bar" : 0,
+            "mlb_undergrad" : 0, "mlb_lawschool" : 0, "mlb_bar" : 0,
+            "nfl_undergrad" : 0, "nfl_lawschool" : 0, "nfl_bar" : 0,
+            "nhl_undergrad" : 0, "nhl_lawschool" : 0, "nhl_bar" : 0}
 
 def twitter_handler(data, i):
     try:
         date_of_interest = getCompletionDate(data.asylum_data['comp_date'][i].astype(int)).strftime('%Y-%m-%d')
-        city = data.asylum_data['Court_SLR'][i]
+        city = data.asylum_data['city'][i]
         key = str(date_of_interest)+city.lower()
         if key in data.all_twitter_data.keys():
             return data.all_twitter_data[key]
@@ -366,40 +441,219 @@ def weather_handler(data, i):
     # iterate through all 5 days of weather
     weather_scores = []
 
+    default_weather = [(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan), (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan), (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan), (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan), (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)]
+
     for date in allDates:
         # Check if date and city values exist
         if type(date) is str and type(city) is str:
-            dateCount += 1
             key = date + city
             if key in data.all_weather_data:
-                weather_data = data.all_weather_data[key]
-                prcp = 1.0 - safe_divide(weather_data[0], data.all_weather_data["max_prcp"]) # precipitation in 10ths of mm
-                snow = 1.0 - safe_divide(weather_data[1], data.all_weather_data["max_snow"]) # snowfall in mm
-                snwd = 1.0 - safe_divide(weather_data[2], data.all_weather_data["max_snwd"]) # depth of snow in mm
-                tmax = weather_data[3]                                                                                      # highest day temperature in 10th of celcius
-                tmin = weather_data[4]                                                                                      # lowest day temperature in 10th of celcius
-                tavg = (float(tmax) + float(tmin)) / 2.0                                                # average day temperature in 10th of celcius
-                tscore = temp_score(tavg)
-                tsun = safe_divide(weather_data[5], data.all_weather_data["max_tsun"]) # daily total sunshine in minutes
-
-                calculations = prcp, snow, snwd, tscore, tsun
-                weather_scores.append(applyWeights(weights(calculations), calculations))
-    if dateCount != 0:
-        return compute_score(weather_scores)
-    return 0.5
+                dateCount += 1
+                weather_scores.append(data.all_weather_data[key])
+            else:
+                weather_scores.append((np.nan, np.nan, np.nan, np.nan, np.nan, np.nan))
+        else:
+            weather_scores.append((np.nan, np.nan, np.nan, np.nan, np.nan, np.nan))
+    if dateCount == 0:
+        return default_weather
+    return weather_scores
 
 def main():
-    # load sports, weather, and asylum data
     data = LoadData()
-    sports_data, weather_data, twitter_score = sports_weather_handler(data)
 
-    data.asylum_data["sports_score"] = sports_data
-    data.asylum_data["weather_score"] = weather_data
-    data.asylum_data["twitter_score"] = twitter_score
+    # merge bios
+    bios_clean = pd.read_stata("data/raw/bios_clean.dta")
+    city_lookup = pd.read_csv("data/raw/cityLookup.csv")
+    data.asylum_data = data.asylum_data.merge(bios_clean, on='ij_code', how='left')
+    data.asylum_data = data.asylum_data.merge(city_lookup, on='hearing_loc_code', how='left')
 
-    data.asylum_data.to_csv('data/raw/asylum_clean_full_cluster.csv', index=False, index_label=False)
-    print "written to file. Done!"
+    # add nationaliy
+    all_nat = []
+    all_nationality = []
+    for row in data.asylum_data.iterrows():
+        idncase = row[1][0]
+        lookup = data.nationality_idncase_lookup[idncase]
+        nat = lookup[0]
+        nationality = lookup[1]
+        all_nat.append(nat)
+        all_nationality.append(nationality)
+    data.asylum_data["nat_code"] = all_nat
+    data.asylum_data["nationality"] = all_nationality
 
+
+    # add sports weather and twitter score
+    sports_data, weather_data, twitter_scores = sports_weather_handler(data)
+
+    # ---------------------------- TWITTER ----------------------------------------- #
+
+    data.asylum_data['twitter_score'] = twitter_scores
+
+    # ---------------------------- TWITTER ----------------------------------------- #
+
+    # ---------------------------- WEATHER ----------------------------------------- #
+
+    # store weather values
+    prcp = []
+    snow = []
+    snwd = []
+    tmax = []
+    tmin = []
+    tsun = []
+
+    prcp_minus_1 = []
+    snow_minus_1 = []
+    snwd_minus_1 = []
+    tmax_minus_1 = []
+    tmin_minus_1 = []
+    tsun_minus_1 = []
+
+    prcp_minus_2 = []
+    snow_minus_2 = []
+    snwd_minus_2 = []
+    tmax_minus_2 = []
+    tmin_minus_2 = []
+    tsun_minus_2 = []
+
+    prcp_minus_3 = []
+    snow_minus_3 = []
+    snwd_minus_3 = []
+    tmax_minus_3 = []
+    tmin_minus_3 = []
+    tsun_minus_3 = []
+
+    prcp_minus_4 = []
+    snow_minus_4 = []
+    snwd_minus_4 = []
+    tmax_minus_4 = []
+    tmin_minus_4 = []
+    tsun_minus_4 = []
+
+    for row in weather_data:
+        prcp.append(row[0][0])
+        snow.append(row[0][1])
+        snwd.append(row[0][2])
+        tmax.append(row[0][3])
+        tmin.append(row[0][4])
+        tsun.append(row[0][5])
+
+        prcp_minus_1.append(row[1][0])
+        snow_minus_1.append(row[1][1])
+        snwd_minus_1.append(row[1][2])
+        tmax_minus_1.append(row[1][3])
+        tmin_minus_1.append(row[1][4])
+        tsun_minus_1.append(row[1][5])
+
+        prcp_minus_2.append(row[2][0])
+        snow_minus_2.append(row[2][1])
+        snwd_minus_2.append(row[2][2])
+        tmax_minus_2.append(row[2][3])
+        tmin_minus_2.append(row[2][4])
+        tsun_minus_2.append(row[2][5])
+
+        prcp_minus_3.append(row[3][0])
+        snow_minus_3.append(row[3][1])
+        snwd_minus_3.append(row[3][2])
+        tmax_minus_3.append(row[3][3])
+        tmin_minus_3.append(row[3][4])
+        tsun_minus_3.append(row[3][5])
+
+        prcp_minus_4.append(row[4][0])
+        snow_minus_4.append(row[4][1])
+        snwd_minus_4.append(row[4][2])
+        tmax_minus_4.append(row[4][3])
+        tmin_minus_4.append(row[4][4])
+        tsun_minus_4.append(row[4][5])
+
+    data.asylum_data["prcp"] = prcp
+    data.asylum_data["snow"] = snow
+    data.asylum_data["snwd"] = snwd
+    data.asylum_data["tmax"] = tmax
+    data.asylum_data["tmin"] = tmin
+    data.asylum_data["tsun"] = tsun
+
+    data.asylum_data["prcp_minus_1"] = prcp_minus_1
+    data.asylum_data["snow_minus_1"] = snow_minus_1
+    data.asylum_data["snwd_minus_1"] = snwd_minus_1
+    data.asylum_data["tmax_minus_1"] = tmax_minus_1
+    data.asylum_data["tmin_minus_1"] = tmin_minus_1
+    data.asylum_data["tsun_minus_1"] = tsun_minus_1
+
+    data.asylum_data["prcp_minus_2"] = prcp_minus_2
+    data.asylum_data["snow_minus_2"] = snow_minus_2
+    data.asylum_data["snwd_minus_2"] = snwd_minus_2
+    data.asylum_data["tmax_minus_2"] = tmax_minus_2
+    data.asylum_data["tmin_minus_2"] = tmin_minus_2
+    data.asylum_data["tsun_minus_2"] = tsun_minus_2
+
+    data.asylum_data["prcp_minus_3"] = prcp_minus_3
+    data.asylum_data["snow_minus_3"] = snow_minus_3
+    data.asylum_data["snwd_minus_3"] = snwd_minus_3
+    data.asylum_data["tmax_minus_3"] = tmax_minus_3
+    data.asylum_data["tmin_minus_3"] = tmin_minus_3
+    data.asylum_data["tsun_minus_3"] = tsun_minus_3
+
+    data.asylum_data["prcp_minus_4"] = prcp_minus_4
+    data.asylum_data["snow_minus_4"] = snow_minus_4
+    data.asylum_data["snwd_minus_4"] = snwd_minus_4
+    data.asylum_data["tmax_minus_4"] = tmax_minus_4
+    data.asylum_data["tmin_minus_4"] = tmin_minus_4
+    data.asylum_data["tsun_minus_4"] = tsun_minus_4
+
+    # ---------------------------- WEATHER ----------------------------------------- #
+
+    # ---------------------------- SPORTS ----------------------------------------- #
+    nba_undergrad = []
+    nba_lawschool = []
+    nba_bar = []
+
+    nfl_undergrad = []
+    nfl_lawschool = []
+    nfl_bar = []
+
+    mlb_undergrad = []
+    mlb_lawschool = []
+    mlb_bar = []
+
+    nhl_undergrad = []
+    nhl_lawschool = []
+    nhl_bar = []
+
+    for column in sports_data:
+        nba_undergrad.append(column['nba_undergrad'])
+        nba_lawschool.append(column['nba_lawschool'])
+        nba_bar.append(column['nba_bar'])
+
+        nfl_undergrad.append(column['nfl_undergrad'])
+        nfl_lawschool.append(column['nfl_lawschool'])
+        nfl_bar.append(column['nfl_bar'])
+
+        mlb_undergrad.append(column['mlb_undergrad'])
+        mlb_lawschool.append(column['mlb_lawschool'])
+        mlb_bar.append(column['mlb_bar'])
+
+        nhl_undergrad.append(column['nhl_undergrad'])
+        nhl_lawschool.append(column['nhl_lawschool'])
+        nhl_bar.append(column['nhl_bar'])
+
+    data.asylum_data['nba_undergrad'] = nba_undergrad
+    data.asylum_data['nba_lawschool'] = nba_lawschool
+    data.asylum_data['nba_bar'] = nba_bar
+
+    data.asylum_data['nfl_undergrad'] = nfl_undergrad
+    data.asylum_data['nfl_lawschool'] = nfl_lawschool
+    data.asylum_data['nfl_bar'] = nfl_bar
+
+    data.asylum_data['mlb_undergrad'] = mlb_undergrad
+    data.asylum_data['mlb_lawschool'] = mlb_lawschool
+    data.asylum_data['mlb_bar'] = mlb_bar
+
+    data.asylum_data['nhl_undergrad'] = nhl_undergrad
+    data.asylum_data['nhl_lawschool'] = nhl_lawschool
+    data.asylum_data['nhl_bar'] = nhl_bar
+
+    # ---------------------------- SPORTS ----------------------------------------- #
+
+    data.asylum_data.to_csv('data/raw/complete_data.csv', index=False, index_label=False)
 
 if __name__ == '__main__':
   main()
