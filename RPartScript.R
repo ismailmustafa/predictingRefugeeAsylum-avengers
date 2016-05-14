@@ -10,8 +10,6 @@ if (length(args)==0) {
   stop("At least one argument must be supplied (input file).n", call.=FALSE)
 } 
 
-print(args[1])
-
 #Load Data
 #data = read.csv("C:/Stuff/NYU/Courses/ML/project/git/PredictingRefugeeAsylum-avengers/data/asylum_data_complete.csv")
 data = read.csv(args[1])

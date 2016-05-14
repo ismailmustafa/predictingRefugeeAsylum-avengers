@@ -13,31 +13,27 @@ from sklearn.cross_validation import cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import Imputer
 from sklearn import preprocessing
-from sklearn.ensemble import GradientBoostingClassifier
-
+from collections import defaultdict
 
 # specify classifiers used
 class Classifier:
-	Adaboost, DecisionTree, RandomForest, GBM = range(4)
+	Adaboost, DecisionTree, RandomForest = range(3)
 
 def main():
+
 	# specify classifier to use
 	selected_classifier = Classifier.Adaboost
 
 	# run classifier
 	if selected_classifier == Classifier.Adaboost:
 		X_train, X_test, y_train, y_test = load_and_process_data()
-		adaboost_train(X_train, X_test, y_train, y_test, max_rounds=20)
+		adaboost_train(X_train, X_test, y_train, y_test, max_rounds=10000)
 	elif selected_classifier == Classifier.DecisionTree:
-		X_train, X_test, y_train, y_test = load_and_process_data()
+		X_train, X_test, y_train, y_test = base_line_data()
 		decision_tree_train(X_train, X_test, y_train, y_test,depth=10)
 	elif selected_classifier == Classifier.RandomForest:
-		X, y = load_all_clean_data()
+		X, y = load_all_data()
 		random_forest_train(X, y)
-	elif selected_classifier == Classifier.GBM:
-		X_train, X_test, y_train, y_test = load_and_process_data()
-		clf = GradientBoostingClassifier(X_train, y_train)
-		print 'Gradient Score : %0.4f'% clf.score(X_test, y_test)
 	else:
 		X_train, X_test, y_train, y_test = load_and_process_data()
 		decision_tree_train(X_train, X_test, y_train, y_test)
@@ -62,18 +58,16 @@ def generate_custom_features(X_raw, data):
 	after_911 = [greater_than_911(x) for x in dates]
 	X_raw = np.column_stack((X_raw, after_911))
 
-	nationalities = data[:,90]
-	middle_eastern_countries = {"BAHRAIN": 0, "CYPRUS": 0, "EGYPT": 0, "IRAN": 0, "IRAQ": 0, "JORDAN": 0, "KUWAIT": 0, "LEBANON": 0,
-															"OMAN": 0, "PALESTINE": 0, "QATAR": 0, "SAUDI ARABIA": 0, "SYRIA": 0, "TURKEY": 0,
-															"UNITED ARAB EMIRATES": 0, "YEMEN": 0}
-	is_middle_eastern_country = []
-	for nationality in nationalities:
-		if nationality in middle_eastern_countries:
-			is_middle_eastern_country.append(1.0)
+	# multiply features 7 (nationality) and 8 (written)
+	nationality = data[:,7]
+	written = data[:,8]
+	result = []
+	for n,w in zip(nationality, written):
+		if not math.isnan(n) and not math.isnan(w):
+			result.append(n*w)
 		else:
-			is_middle_eastern_country.append(0.0)
-
-	X_raw = np.column_stack((X_raw, is_middle_eastern_country))
+			result.append(np.nan)
+	X_raw = np.column_stack((X_raw, result))
 
 	return X_raw
 	
@@ -89,11 +83,49 @@ def greater_than_911(date):
 	else:
 		return 0.0
 
+def base_line_data():
+
+	print "loading data and processing..."
+	asylum_data = pandas.read_csv("data/raw/complete_data.csv")
+	data = asylum_data.as_matrix()
+
+	# original (----- use this as baseline -----)
+	X_raw = data[:, [5, 6, 8, 11, 12, 15, 19, 21, 22, 23, 30, 31, 33, 34, 35, 36, 37, 39, 52, 53, 54, 55, 56, 58]]
+
+	# use column 26 raw_grant as response
+	y_raw = data[:,26]
+
+	# merge X and y
+	arrayToClean = np.column_stack((X_raw,y_raw))
+
+	# remove nan rows
+	newArray = []
+	for row in arrayToClean:
+		containsNan = False
+		for val in row:
+			if math.isnan(val):
+				containsNan = True
+				break
+		if not containsNan:
+			newArray.append(row)
+	cleanedData = np.array(newArray)
+
+	print cleanedData.shape
+
+	# extract X and y from cleaned rows
+	X = cleanedData[:,:24]
+	y = cleanedData[:,-1]
+	
+	# convert y floats to y int
+	y = y.astype(int)
+
+	# split data into train and test
+	return cross_validation.train_test_split(X, y, test_size=0.4, random_state=0)
 
 # load data, clean values, return train and test set split
 def load_and_process_data():
 	print "loading data and processing..."
-	asylum_data = pandas.read_csv("data/raw/asylum_data_full.csv")
+	asylum_data = pandas.read_csv("data/raw/complete_data.csv")
 	data = asylum_data.as_matrix()
 
 	# original (----- use this as baseline -----)
@@ -123,9 +155,170 @@ def load_and_process_data():
 									,37		# year
 									,38		# mean grant rate per judge x nationality x defensive
 									,41		# nationality defensive court id
-									,42		# judgemeannatdefyear
-									,43 	# judgenumdecnatdefyear
-									,44		# control variable - leave-1-out-mean of how judge decides on these refugees in nationality X defensive X year
+									#,42		# judgemeannatdefyear
+									#,43 	# judgenumdecnatdefyear
+									#,44		# control variable - leave-1-out-mean of how judge decides on these refugees in nationality X defensive X year
+									,46		# whether previous case was of same nationality
+									,47		# grant grant
+									,48		# grant deny
+									,49		# deny grant
+									,50		# deny deny
+									,51		# hour start
+									,52		# morning
+									,53		# lunchtime
+									,54		# numcases_judgeday
+									,55		# numcases_judge
+									,56		# minimum number of hearings in a courthouse
+									,57		# year appointed
+									,58		# year of experience
+									,59 	# whether judge has 8 or more years of experience
+									,71		# male judge
+									,75		# year of first undergrad graduation
+									,76   # year college slr
+									,77		# year law school
+									,79		# years in government
+									,80		# years in government and not INS
+									,81		# years in INS
+									,82		# INS five year count
+									,83		# years in the military
+									,84		# NGO years
+									,85		# years in private practice
+									,86		# years in academia
+									# ,124
+									# ,125
+									# ,126
+									# ,127
+									# ,128
+									# ,129
+									# ,130
+									# ,131
+									# ,132
+									# ,133
+									# ,134
+									# ,135
+									#,124
+									# ,92
+									# ,93
+									# ,94
+									# ,95
+									# ,96
+									# #,97
+									# ,98
+									# ,99
+									# ,100
+									# ,101
+									# ,102
+									# #,103
+									# ,104
+									# ,105
+									# ,106
+									# ,107
+									# ,108
+									# #,109
+									# ,110
+									# ,111
+									# ,112
+									# ,113
+									# ,114
+									# #,115
+									# ,116
+									# ,117
+									# ,118
+									# ,119
+									# ,120
+									# #,121
+									#,122
+									#,123
+
+
+									# weather data
+									# ,92		# precipitation
+									# ,93		# snow fall
+									# ,94		# snow depth
+									# ,95		# temperature max
+									# ,96		# temperature min
+									# ,97		# minutes of sunshine
+									]]
+
+	# string data
+	X_raw = convert_string_data(X_raw, data, [2		#hearing location code
+																					 ,3		# refugee code
+																					 ,67	# location of judge's bar
+																					 ,68	# other locations mentioned in bio
+																					 ,72	# court city
+																					 ,78	# president
+																					 ])
+
+	# custom features
+	X_raw = generate_custom_features(X_raw, data)
+
+	# use column 26 raw_grant as response
+	y_raw = data[:,26]
+
+	# merge X and y
+	arrayToClean = np.column_stack((X_raw,y_raw))
+
+	# remove nan rows
+	newArray = []
+	for row in arrayToClean:
+		containsNan = False
+		for val in row:
+			if math.isnan(val):
+				containsNan = True
+				break
+		if not containsNan:
+			newArray.append(row)
+	cleanedData = np.array(newArray)
+
+	print cleanedData.shape
+
+
+	# extract X and y from cleaned rows
+	X = cleanedData[:,:24]
+	y = cleanedData[:,-1]
+	
+	# convert y floats to y int
+	y = y.astype(int)
+
+	# split data into train and test
+	return cross_validation.train_test_split(X, y, test_size=0.4, random_state=0)
+
+# load all data, including missing values
+def load_all_data():
+	print "loading data and processing..."
+	asylum_data = pandas.read_csv("data/raw/complete_data.csv")
+	data = asylum_data.as_matrix()
+
+	# select specific X columns as features
+	# original (----- use this as baseline -----)
+	#X_raw = data[:, [5, 6, 8, 11, 12, 15, 19, 21, 22, 23, 30, 31, 33, 34, 35, 36, 37, 39, 52, 53, 54, 55, 56, 58]]
+	# with mood (mood_k2 at index 91, mood_k8 at index 97)
+	#X_raw = data[:, [5, 6, 8, 11, 12, 15, 19, 21, 22, 23, 30, 31, 33, 34, 35, 36, 37, 39, 52, 53, 54, 55, 56, 58, 89, 90]]
+
+	# numeric data features
+	X_raw = data[:, [4		# hearing date
+								  ,5		# laywer
+									,6		# defensive 
+									,7		# nationality id
+									,8		# decision is written
+									,10		# adj_time_start
+									,11		# early start time
+									,16		# court code (same as column 15 courtid)
+									,19		# number of family members
+									,21		# number of families in current time slot
+									,22		# number of families per day
+									,23 	# order within day
+									,27		# lag
+									,28		# lag on same day
+									,29		# l2 grant
+									,30		# how many of the previous 5 decision were grants
+									,33		# number of grants within same court excluding current judge
+									,34		#	number of previous 5 decided by current judge
+									,35		# numcourtgrantother_prev5
+									,36		# courtprevother5_dayslapse
+									,37		# year
+									,38		# mean grant rate per judge x nationality x defensive
+									,41		# nationality defensive court id
 									,46		# whether previous case was of same nationality
 									,47		# grant grant
 									,48		# grant deny
@@ -169,115 +362,12 @@ def load_and_process_data():
 	# use column 26 raw_grant as response
 	y_raw = data[:,26]
 
-	# merge X and y
-	arrayToClean = np.column_stack((X_raw,y_raw))
-
-	# remove nan rows
-	newArray = []
-	for row in arrayToClean:
-		containsNan = False
-		for val in row:
-			if math.isnan(val):
-				containsNan = True
-				break
-		if not containsNan:
-			newArray.append(row)
-	cleanedData = np.array(newArray)
-
-
-	# extract X and y from cleaned rows
-	X = cleanedData[:,:24]
-	y = cleanedData[:,-1]
-	
-	# convert y floats to y int
-	y = y.astype(int)
-
-	# split data into train and test
-	return cross_validation.train_test_split(X, y, test_size=0.4, random_state=0)
-
-# load all data, including missing values
-def load_all_data():
-	print "loading data and processing..."
-	asylum_data = pandas.read_csv("data/raw/asylum_data_full.csv")
-	data = asylum_data.as_matrix()
-
-	# select specific X columns as features
-	# original (----- use this as baseline -----)
-	#X_raw = data[:, [5, 6, 8, 11, 12, 15, 19, 21, 22, 23, 30, 31, 33, 34, 35, 36, 37, 39, 52, 53, 54, 55, 56, 58]]
-	# with mood (mood_k2 at index 91, mood_k8 at index 97)
-	#X_raw = data[:, [5, 6, 8, 11, 12, 15, 19, 21, 22, 23, 30, 31, 33, 34, 35, 36, 37, 39, 52, 53, 54, 55, 56, 58, 89, 90]]
-
-	# numeric data features
-	X_raw = data[:, [4		# hearing date
-									,5		# laywer
-									,6		# defensive 
-									,7		# nationality id
-									,8		# decision is written
-									,11		# early start time
-									,16		# court code (same as column 15 courtid)
-									,19		# number of family members
-									,21		# number of families in current time slot
-									,22		# number of families per day
-									,23 	# order within day
-									,27		# lag
-									,28		# lag on same day
-									,29		# l2 grant
-									,30		# how many of the previous 5 decision were grants
-									,33		# number of grants within same court excluding current judge
-									,34		#	number of previous 5 decided by current judge
-									,35		# numcourtgrantother_prev5
-									,36		# courtprevother5_dayslapse
-									,37		# year
-									,38		# mean grant rate per judge x nationality x defensive
-									,41		# nationality defensive court id
-									,42		# judgemeannatdefyear
-									,43 	# judgenumdecnatdefyear
-									,44		# control variable - leave-1-out-mean of how judge decides on these refugees in nationality X defensive X year
-									,46		# whether previous case was of same nationality
-									,47		# grant grant
-									,48		# grant deny
-									,49		# deny grant
-									,50		# deny deny
-									,51		# hour start
-									,52		# morning
-									,53		# lunchtime
-									,54		# numcases_judgeday
-									,55		# numcases_judge
-									,56		# minimum number of hearings in a courthouse
-									,57		# year appointed
-									,58		# year of experience
-									,59 	# whether judge has 8 or more years of experience
-									,71		# male judge
-									,76   # year college slr
-									,77		# year law school
-									,79		# years in government
-									,80		# years in government and not INS
-									,81		# years in INS
-									,82		# INS five year count
-									,83		# years in the military
-									,84		# NGO years
-									,85		# years in private practice
-									,86		# years in academia
-									]]
-
-	# string data
-	X_raw = convert_string_data(X_raw, data, [2		#hearing location code
-																					 ,3		# refugee code
-																					 ,67	# location of judge's bar
-																					 ,68	# other locations mentioned in bio
-																					 ,72	# court city
-																					 ,78	# president
-																					 ])
-
-	# use column 26 raw_grant as response
-	y_raw = data[:,26]
-
 	# split data into train and test
 	return X_raw, y_raw
 
 def load_all_clean_data():
 	print "loading data and processing..."
-	asylum_clean = pandas.read_csv("data/raw/asylum_clean_full_mood.csv")
+	asylum_clean = pandas.read_csv("data/raw/complete_data.csv")
 	asylum_clean_data = asylum_clean.as_matrix()
 
 	# select specific X columns as features
@@ -335,12 +425,12 @@ def decision_tree_train(X_train, X_test, y_train, y_test, depth=10):
 		clf = DecisionTreeClassifier(max_depth=depth).fit(X_train, y_train)
 		train_error = 1.0 - clf.score(X_train, y_train)
 		test_error = 1.0 - clf.score(X_test, y_test)
-		print "depth:", d, "train error:", train_error, "test_error:", test_error
+		print "depth:", d, "train score:", 1.0 - train_error, "test score:", 1.0 - test_error
 		train_errors.append(train_error)
 		test_errors.append(test_error)
 
 	# plot
-	train_test_error_plot(depths, train_errors, test_errors, "Decision Tree Classifier", "error")
+	bar_plot(depths, train_errors, test_errors, "Decision Tree Classifier", "depths")
 
 # -------------------------------- DECISION TREE --------------------------------
 
@@ -437,18 +527,25 @@ def random_forest_train(X, y):
 	X_missing = X.copy()
 	X_missing[np.where(missing_samples)[0], missing_features] = 0
 	y_missing = y.copy()
-	estimator = Pipeline([("imputer", Imputer(missing_values=0,
-																						strategy="mean",
-																						axis=0)),
-												("forest", RandomForestRegressor(random_state=0,
-																												 n_estimators=100))])
-	score = cross_val_score(estimator, X_missing, y_missing).mean()
-	print("Score after imputation of the missing values = %.2f" % score)
 
-	# print "training random forest"
-	# estimator = RandomForestRegressor(random_state=0, n_estimators=100)
-	# score = cross_val_score(estimator, X, y).mean()
-	# print("Score = %.2f" % score)
+	trees = [int(x) for x in np.arange(1,140)]
+	scores = []
+	for t in trees:
+		estimator = Pipeline([("imputer", Imputer(missing_values=0,
+																							strategy="most_frequent",
+																							axis=0)),
+													("forest", RandomForestRegressor(random_state=0,
+																													 n_estimators=t, n_jobs=-1))])
+		score = cross_val_score(estimator, X_missing, y_missing).mean()
+		print "trees:", t, "score:", score
+		scores.append(score)
+
+	plt.rcParams.update({'font.size': 18})
+	plt.plot(trees, scores)
+	plt.xlabel("Number of Trees")
+	plt.ylabel("Score")
+	plt.title("Random Forest Regressor")
+	plt.show()
 
 # -------------------------------- RANDOM FOREST --------------------------------
 
@@ -473,7 +570,172 @@ def train_test_score_plot(depths, train_errors, test_errors, plot_title, xlabel)
 	plt.ylabel("score")
 	plt.legend(loc=4)
 	plt.show()
+
+def bar_plot(depths, train_errors, test_errors, plot_title, xlabel):
+	train_scores = [1.0-x for x in train_errors]
+	test_scores = [1.0-x for x in test_errors]
+
+	plt.rcParams.update({'font.size': 18})
+
+	width = 0.40
+	fig, ax = plt.subplots()
+	rects1 = ax.bar(depths, train_scores, width, color='r')
+	rects2 = ax.bar(depths + width, test_scores, width, color='b')
+
+	ax.set_ylabel('Scores')
+	ax.set_title(plot_title)
+	ax.set_xlabel(xlabel)
+
+	ax.set_xticks(depths)
+	ax.legend((rects1[0], rects2[0]), ('train', 'test'), loc=4)
+
+	plt.show()
 # -------------------------------- PLOTTING -------------------------------------
 
 if __name__ == '__main__':
   main()
+
+def plot_random_forest():
+	x_y = [(1 ,-0.371003354709),
+	(2 ,-0.00701635196145),
+	(3 ,0.112720357395),
+	(4 ,0.172282300268),
+	(5 ,0.209648590076),
+	(6 ,0.23521886899),
+	(7 ,0.252525159451),
+	(8 ,0.265074523417),
+	(9 ,0.274840153833),
+	(10 ,0.281511652427),
+	(11 ,0.288662235109),
+	(12 ,0.292363234128),
+	(13 ,0.298108873568),
+	(14 ,0.302763071533),
+	(15 ,0.307304420584),
+	(16 ,0.310044049182),
+	(17 ,0.312804911985),
+	(18 ,0.315270263505),
+	(19 ,0.317178211003),
+	(20 ,0.319853239463),
+	(21 ,0.321776840602),
+	(22 ,0.322783556182),
+	(23 ,0.324006600206),
+	(24 ,0.325049813113),
+	(25 ,0.326170702054),
+	(26 ,0.326938160419),
+	(27 ,0.328887749904),
+	(28 ,0.33001058743),
+	(29 ,0.331083203756),
+	(30 ,0.332057776752),
+	(31 ,0.332586715467),
+	(32 ,0.333209795529),
+	(33 ,0.334091025764),
+	(34 ,0.334781724845),
+	(35 ,0.335542360378),
+	(36 ,0.336311262813),
+	(37 ,0.336785200747),
+	(38 ,0.337244930104),
+	(39 ,0.337561498376),
+	(40 ,0.338184930985),
+	(41 ,0.338904645998),
+	(42 ,0.339603604144),
+	(43 ,0.34023077572),
+	(44 ,0.340543623832),
+	(45 ,0.340546215228),
+	(46 ,0.341160673234),
+	(47 ,0.341601366958),
+	(48 ,0.341807764046),
+	(49 ,0.342294718733),
+	(50 ,0.342314307811),
+	(51 ,0.342321184527),
+	(52 ,0.342423462701),
+	(53 ,0.342488836763),
+	(54 ,0.342905737705),
+	(55 ,0.343209785687),
+	(56 ,0.343378896655),
+	(57 ,0.343759329832),
+	(58 ,0.344047916341),
+	(59 ,0.344158432407),
+	(60 ,0.344387023309),
+	(61 ,0.344246425057),
+	(62 ,0.344384350668),
+	(63 ,0.344465165605),
+	(64 ,0.344603823124),
+	(65 ,0.344659241775),
+	(66 ,0.34482758456),
+	(67 ,0.345197997626),
+	(68 ,0.345478271292),
+	(69 ,0.345590477941),
+	(70 ,0.34579955671),
+	(71 ,0.345927218147),
+	(72 ,0.34597392378),
+	(73 ,0.346049972025),
+	(74 ,0.346171689376),
+	(75 ,0.346271961006),
+	(76 ,0.346400862357),
+	(77 ,0.346727045319),
+	(78 ,0.346950748767),
+	(79 ,0.346919829288),
+	(80 ,0.347083798665),
+	(81 ,0.347000870612),
+	(82 ,0.347228247389),
+	(83 ,0.347321033641),
+	(84 ,0.347345973808),
+	(85 ,0.347531155627),
+	(86 ,0.347495209002),
+	(87 ,0.347639669182),
+	(88 ,0.347634544646),
+	(89 ,0.347619835346),
+	(90 ,0.347715359261),
+	(91 ,0.347795103602),
+	(92 ,0.347949885208),
+	(93 ,0.348030177396),
+	(94 ,0.348341368808),
+	(95 ,0.348240099823),
+	(96 ,0.348337795066),
+	(97 ,0.348371122257),
+	(98 ,0.348435935731),
+	(99 ,0.34852554761),
+	(100 ,0.34853855018),
+	(101 ,0.348562738164),
+	(102 ,0.348675969867),
+	(103 ,0.34877932027),
+	(104 ,0.348804290105),
+	(105 ,0.348910454579),
+	(106 ,0.349000878442),
+	(107 ,0.34903216006),
+	(108 ,0.349149453923),
+	(109 ,0.349202812034),
+	(110 ,0.34930116503),
+	(111 ,0.349321424487),
+	(112 ,0.349298724708),
+	(113 ,0.349470340049),
+	(114 ,0.349540599414),
+	(115 ,0.349649567516),
+	(116 ,0.349638198327),
+	(117 ,0.349675520494),
+	(118 ,0.349776589037),
+	(119 ,0.349968376958),
+	(120 ,0.350134450019),
+	(121 ,0.350282182894),
+	(122 ,0.35024287711),
+	(123 ,0.350348136587),
+	(124 ,0.350367938462),
+	(125 ,0.350517964002),
+	(126 ,0.350593828687),
+	(127 ,0.350617717739),
+	(128 ,0.3506792667),
+	(129 ,0.350806942903),
+	(130 ,0.350822949144),
+	(131 ,0.350831682128),
+	(132 ,0.350776829392),
+	(133 ,0.350810753966),
+	(134 ,0.350857520648),
+	(135 ,0.350889603073),
+	(136 ,0.351044762536)]
+
+	plt.rcParams.update({'font.size': 18})
+	plt.plot([x[0] for x in x_y], [x[1] for x in x_y])
+	plt.xlabel("Number of Trees")
+	plt.ylabel("Score")
+	plt.title("Random Forest Regressor")
+	plt.show()
