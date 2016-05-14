@@ -125,7 +125,7 @@ To run Decision Tree, type the following:
 ```bash
 Rscript RPartScript.R fileName
 ```
-fileName - output file from clean.py : complete_data.csv
+fileName - output file from clean.py : complete_data.csv.
 This will built a Decision Tree model with all the features.
 
 To run GBM Model, type the following:
@@ -133,7 +133,7 @@ To run GBM Model, type the following:
 ```bash
 Rscript FullFeatureGBM.R fileName
 ```
-fileName - output file from clean.py : complete_data.csv
+fileName - output file from clean.py : complete_data.csv.
 This will built a GBM model with all the features.
 
 To tune GBM Model parameters, type the following:
@@ -141,7 +141,7 @@ To tune GBM Model parameters, type the following:
 ```bash
 Rscript GBMParameterTuning.R fileName
 ```
-fileName - output file from clean.py : complete_data.csv
+fileName - output file from clean.py : complete_data.csv.
 This will tune the GBM model paramters with all the features.
 
 
