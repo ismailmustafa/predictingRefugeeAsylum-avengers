@@ -120,6 +120,8 @@ This will run Adaboost on selected features of the dataset and output the score
 on every step. A graph will be shown at the end. To change the model, go to line
 25 and changed the selected_classifier to one of the other two classifiers.
 
+### R Code
+
 To run Decision Tree, type the following:
 
 ```bash
