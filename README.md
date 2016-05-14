@@ -120,3 +120,29 @@ This will run Adaboost on selected features of the dataset and output the score
 on every step. A graph will be shown at the end. To change the model, go to line
 25 and changed the selected_classifier to one of the other two classifiers.
 
+To run Decision Tree, type the following:
+
+```bash
+Rscript RPartScript.R fileName
+```
+fileName - output file from clean.py : complete_data.csv
+This will built a Decision Tree model with all the features.
+
+To run GBM Model, type the following:
+
+```bash
+Rscript FullFeatureGBM.R fileName
+```
+fileName - output file from clean.py : complete_data.csv
+This will built a GBM model with all the features.
+
+To tune GBM Model parameters, type the following:
+
+```bash
+Rscript GBMParameterTuning.R fileName
+```
+fileName - output file from clean.py : complete_data.csv
+This will tune the GBM model paramters with all the features.
+
+
+
