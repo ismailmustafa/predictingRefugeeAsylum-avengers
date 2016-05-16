@@ -1,9 +1,16 @@
 require(dplyr)
 require(gbm)
 
-#Load Data
-data_sports = read.csv("C:/Stuff/NYU/Courses/ML/project/data/asylum_data_complete_complete.csv")
+#!/usr/bin/env Rscript
+args = commandArgs(trailingOnly=TRUE)
+# test if there is at least one argument: if not, return an error
+if (length(args)==0) {
+  stop("At least one argument must be supplied (input file).n", call.=FALSE)
+} 
 
+#Load Data
+data_sports = read.csv(args[1])
+print('Data Loaded')
 ## 75% of the sample size
 smp_size_sports <- floor(0.75 * nrow(data_sports))
 
